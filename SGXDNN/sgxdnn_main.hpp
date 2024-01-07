@@ -31,6 +31,12 @@ extern "C" {
 		void load_model_float(char* model_json, float** filters);
 		void load_model_float_verify(char* model_json, float** filters, bool preproc);
 
+		void input_exp(float* gpu_x_exp_raw, float* r_exp_raw, float* a_idx, float* r_a_idx, float* x_r_idx, float* output, float* integrity_gap);
+		void input_softmax(float* x_exp_raw, float* output);
+		void input_QK(unsigned int* gpu_res, unsigned int* Q_selected_indices, unsigned int* K_selected_indices, unsigned int* permuted_QR_indices, unsigned int* permuted_KS_indices, unsigned int* permuted_dim, unsigned int* output);
+		void input_XW(unsigned int* gpu_res, unsigned int* X_selected_indices, unsigned int* W_selected_indices, unsigned int* permuted_XR_indices, unsigned int* permuted_WS_indices, unsigned int* permuted_dim_X, unsigned int* permuted_dim_W, unsigned int* output);
+		void input_AV(unsigned int* gpu_res, unsigned int* A_selected_indices, unsigned int* V_selected_indices, unsigned int* permuted_AR_indices, unsigned int* permuted_VS_indices, unsigned int* permuted_dim_A, unsigned int* permuted_dim_V, unsigned int* output);
+		
 		void predict_float(float* input, float* output, int batch_size);
 		void predict_verify_float(float* input, float* output, float** aux_data, int batch_size);
 

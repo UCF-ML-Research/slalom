@@ -342,6 +342,7 @@ namespace SGXDNN
             six8f = _mm256_set1_ps((float) 6 * shift_w * shift_x);
 
             int max_tensor_size = model_obj["max_tensor_size"].int_value();
+			printf("xxxxxx:%d\n", max_tensor_size);
 			mem_pool = new MemPool(2, max_tensor_size*sizeof(float));
 
             array4d temp_shape = {0, 0, 0, 0};

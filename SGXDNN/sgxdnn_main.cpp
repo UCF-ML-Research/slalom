@@ -72,6 +72,7 @@ inline void unblind(F func, float* inp, float* blind, float* out, int num_elemen
 extern "C" {
 
 	Model<float> model_float;
+	Model<int> model_int;
 
 	bool slalom_privacy;
 	bool slalom_integrity;
@@ -109,7 +110,366 @@ extern "C" {
         Eigen::setNbThreads(n_threads);
         #endif
 	}
+	void input_exp(float* gpu_x_exp_raw, float* r_exp_raw, float* a_idx, float* r_a_idx, float* x_r_idx, float* output, float* integrity_gap) {
+		model_float.mem_pool = new MemPool(2, 3211264*sizeof(float));
+		array1d gpu_x_exp_raw_dim = {128 * 3};
+		int gpu_x_exp_raw_size = 128 * 3;
+		array1d r_exp_raw_dim = {128};
+		int r_exp_raw_size = 128;
+		array1d a_idx_dim = {128};
+		int a_idx_size = 128;
+		array1d r_a_idx_dim = {128};
+		int r_a_idx_size = 128;
+		array1d x_r_idx_dim = {128};
+		int x_r_idx_size = 128;
 
+		// copy input in into enclave
+		float* gpu_x_exp_raw_copy = model_float.mem_pool->alloc<float>(gpu_x_exp_raw_size);
+		std::copy(gpu_x_exp_raw, gpu_x_exp_raw + gpu_x_exp_raw_size, gpu_x_exp_raw_copy);
+		auto map_gpu_x_exp_raw = TensorMap<float, 1>(gpu_x_exp_raw_copy, gpu_x_exp_raw_dim);
+
+		float* r_exp_raw_copy = model_float.mem_pool->alloc<float>(r_exp_raw_size);
+		std::copy(r_exp_raw, r_exp_raw + r_exp_raw_size, r_exp_raw_copy);
+		auto map_r_exp_raw = TensorMap<float, 1>(r_exp_raw_copy, r_exp_raw_dim);
+
+		float* a_idx_copy = model_float.mem_pool->alloc<float>(a_idx_size);
+		std::copy(a_idx, a_idx + a_idx_size, a_idx_copy);
+		auto map_a_idx = TensorMap<float, 1>(a_idx_copy, a_idx_dim);
+
+		float* r_a_idx_copy = model_float.mem_pool->alloc<float>(r_a_idx_size);
+		std::copy(r_a_idx, r_a_idx + r_a_idx_size, r_a_idx_copy);
+		auto map_r_a_idx = TensorMap<float, 1>(r_a_idx_copy, r_a_idx_dim);
+
+		float* x_r_idx_copy = model_float.mem_pool->alloc<float>(x_r_idx_size);
+		std::copy(x_r_idx, x_r_idx + x_r_idx_size, x_r_idx_copy);
+		auto map_x_r_idx = TensorMap<float, 1>(x_r_idx_copy, x_r_idx_dim);
+
+		float* gpu_a_exp_raw = model_float.mem_pool->alloc<float>(128);
+		float* gpu_r_a_exp_raw = model_float.mem_pool->alloc<float>(128);
+		float* gpu_x_r_exp_raw = model_float.mem_pool->alloc<float>(128);
+
+		for (int i = 0; i < 128; ++i) {
+			gpu_a_exp_raw[i] = gpu_x_exp_raw_copy[static_cast<int>(a_idx_copy[i])];
+			gpu_r_a_exp_raw[i] = gpu_x_exp_raw_copy[static_cast<int>(r_a_idx_copy[i])];
+			gpu_x_r_exp_raw[i] = gpu_x_exp_raw_copy[static_cast<int>(x_r_idx_copy[i])];
+		}
+
+		float* gpu_r_exp_raw = model_float.mem_pool->alloc<float>(128);
+		for (int i = 0; i < 128; ++i) {
+			gpu_r_exp_raw[i] = gpu_a_exp_raw[i] * gpu_r_a_exp_raw[i];
+		}
+
+		for (int i = 0; i < 128; ++i) {
+			output[i] = gpu_r_exp_raw[i] * gpu_x_r_exp_raw[i];
+		}
+		for (int i = 0; i < 128; ++i) {
+        	integrity_gap[i] = gpu_r_exp_raw[i] - r_exp_raw_copy[i];
+		}
+
+		model_float.mem_pool->release(gpu_x_exp_raw_copy);
+		model_float.mem_pool->release(r_exp_raw_copy);
+		model_float.mem_pool->release(a_idx_copy);
+		model_float.mem_pool->release(r_a_idx_copy);
+		model_float.mem_pool->release(x_r_idx_copy);
+		model_float.mem_pool->release(gpu_a_exp_raw);
+		model_float.mem_pool->release(gpu_r_a_exp_raw);
+		model_float.mem_pool->release(gpu_x_r_exp_raw);
+		model_float.mem_pool->release(gpu_r_exp_raw);
+	}
+
+	void input_softmax(float* x_exp_raw, float* output) {
+		model_float.mem_pool = new MemPool(2, 3211264*sizeof(float));
+		array1d x_exp_raw_dim = {128};
+		int x_exp_raw_size = 128;
+
+		// copy input in into enclave
+		float* x_exp_raw_copy = model_float.mem_pool->alloc<float>(x_exp_raw_size);
+		std::copy(x_exp_raw, x_exp_raw + x_exp_raw_size, x_exp_raw_copy);
+		auto map_x_exp_raw = TensorMap<float, 1>(x_exp_raw_copy, x_exp_raw_dim);
+
+		// compute softmax
+		float sum = 0.0;
+		for (int i = 0; i < x_exp_raw_size; ++i) {
+			x_exp_raw_copy[i] = exp(x_exp_raw_copy[i]);
+			sum += x_exp_raw_copy[i];
+		}
+
+		for (int i = 0; i < x_exp_raw_size; ++i) {
+			output[i] = x_exp_raw_copy[i] / sum;
+		}
+
+		// Release memory if no longer needed
+		model_float.mem_pool->release(x_exp_raw_copy);
+	}
+	void input_QK(unsigned int* gpu_res, unsigned int* Q_selected_indices, unsigned int* K_selected_indices, 
+				unsigned int* permuted_QR_indices, unsigned int* permuted_KS_indices, unsigned int* permuted_dim, unsigned int* output) {
+
+		const unsigned int permuted_dim_value = *permuted_dim;
+		model_int.mem_pool = new MemPool(2, 3211264 * sizeof(unsigned int));
+
+		array2d gpu_res_dim = {permuted_dim_value, permuted_dim_value};
+		array1d Q_selected_indices_dim = {128};
+		array1d K_selected_indices_dim = {128};
+		array1d permuted_QR_indices_dim = {permuted_dim_value};
+		array1d permuted_KS_indices_dim = {permuted_dim_value};
+		array2d output_dim = {permuted_dim_value, permuted_dim_value};
+
+		int gpu_res_size = permuted_dim_value * permuted_dim_value;
+		int Q_selected_indices_size = 128;
+		int K_selected_indices_size = 128;
+		int permuted_QR_indices_size = permuted_dim_value;
+		int permuted_KS_indices_size = permuted_dim_value;
+		int output_size = permuted_dim_value * permuted_dim_value;
+
+		// Copy input into enclave
+		unsigned int* gpu_res_copy = model_int.mem_pool->alloc<unsigned int>(gpu_res_size);
+		std::copy(gpu_res, gpu_res + gpu_res_size, gpu_res_copy);
+
+		unsigned int* Q_selected_indices_copy = model_int.mem_pool->alloc<unsigned int>(Q_selected_indices_size);
+		std::copy(Q_selected_indices, Q_selected_indices + Q_selected_indices_size, Q_selected_indices_copy);
+
+		unsigned int* K_selected_indices_copy = model_int.mem_pool->alloc<unsigned int>(K_selected_indices_size);
+		std::copy(K_selected_indices, K_selected_indices + K_selected_indices_size, K_selected_indices_copy);
+
+		unsigned int* permuted_QR_indices_copy = model_int.mem_pool->alloc<unsigned int>(permuted_QR_indices_size);
+		std::copy(permuted_QR_indices, permuted_QR_indices + permuted_QR_indices_size, permuted_QR_indices_copy);
+
+		unsigned int* permuted_KS_indices_copy = model_int.mem_pool->alloc<unsigned int>(permuted_KS_indices_size);
+		std::copy(permuted_KS_indices, permuted_KS_indices + permuted_KS_indices_size, permuted_KS_indices_copy);
+
+		// Map tensors
+		auto map_gpu_res = TensorMap<unsigned int, 2>(gpu_res_copy, gpu_res_dim);
+		auto map_Q_selected_indices = TensorMap<unsigned int, 1>(Q_selected_indices_copy, Q_selected_indices_dim);
+		auto map_K_selected_indices = TensorMap<unsigned int, 1>(K_selected_indices_copy, K_selected_indices_dim);
+		auto map_permuted_QR_indices = TensorMap<unsigned int, 1>(permuted_QR_indices_copy, permuted_QR_indices_dim);
+		auto map_permuted_KS_indices = TensorMap<unsigned int, 1>(permuted_KS_indices_copy, permuted_KS_indices_dim);
+		unsigned int* gpu_res_all = model_int.mem_pool->alloc<unsigned int>(permuted_dim_value * permuted_dim_value);
+		unsigned int* gpu_res_1 = model_int.mem_pool->alloc<unsigned int>(128 * 128);
+		unsigned int* gpu_res_2 = model_int.mem_pool->alloc<unsigned int>(128 * (permuted_dim_value - 128));
+		unsigned int* gpu_res_3 = model_int.mem_pool->alloc<unsigned int>((permuted_dim_value - 128) * 128);
+		unsigned int* gpu_res_4 = model_int.mem_pool->alloc<unsigned int>((permuted_dim_value - 128) * (permuted_dim_value - 128));
+		// Correct the order of gpu_res based on permuted indices
+		for (int i = 0; i < permuted_dim_value; ++i) {
+			for (int j = 0; j < permuted_dim_value; ++j) {
+				int corrected_i = static_cast<int>(map_permuted_QR_indices(i));
+				int corrected_j = static_cast<int>(map_permuted_KS_indices(j));
+				output[corrected_i * permuted_dim_value + corrected_j] = map_gpu_res(i, j);
+			}
+		}
+		// Compute RK
+		for (int i = 128; i < permuted_dim_value; ++i) {
+			for (int j = 0; j < 128; ++j) {
+				int coefficient_i = i - 128 + 128;
+				int coefficient_j = static_cast<int>(map_K_selected_indices(j)) + 128;
+				output[i * permuted_dim_value + j] = output[i * permuted_dim_value + j] + output[coefficient_i * permuted_dim_value + coefficient_j];
+			}
+		}
+		// Compute QS
+		for (int i = 0; i < 128; ++i) {
+			for (int j = 128; j < permuted_dim_value; ++j) {
+				int coefficient_i = static_cast<int>(map_Q_selected_indices(i)) + 128;
+				int coefficient_j = j - 128 + 128;
+				output[i * permuted_dim_value + j] = output[i * permuted_dim_value + j] + output[coefficient_i * permuted_dim_value + coefficient_j];
+			}
+		}
+		// Compute RES
+		for (int i = 0; i < 128; ++i) {
+			for (int j = 0; j < 128; ++j) {
+				int coefficient_R = static_cast<int>(map_Q_selected_indices(i)) + 128;
+				int coefficient_S = static_cast<int>(map_K_selected_indices(j)) + 128;
+				output[i * permuted_dim_value + j] = output[i * permuted_dim_value + j] + output[i * permuted_dim_value + coefficient_S]
+														  + output[coefficient_R * permuted_dim_value + j]
+														  - output[coefficient_R * permuted_dim_value + coefficient_S];
+			}
+		}
+		printf("TEST12n");
+		// Release memory
+		model_int.mem_pool->release(gpu_res_copy);
+		model_int.mem_pool->release(Q_selected_indices_copy);
+		model_int.mem_pool->release(K_selected_indices_copy);
+		model_int.mem_pool->release(permuted_QR_indices_copy);
+		model_int.mem_pool->release(permuted_KS_indices_copy);
+	}
+
+	void input_XW(unsigned int* gpu_res, unsigned int* X_selected_indices, unsigned int* W_selected_indices, 
+				unsigned int* permuted_XR_indices, unsigned int* permuted_WS_indices, unsigned int* permuted_dim_X, unsigned int* permuted_dim_W, unsigned int* output) {
+
+		const unsigned int permuted_dim_X_value = *permuted_dim_X;
+		const unsigned int permuted_dim_W_value = *permuted_dim_W;
+		model_int.mem_pool = new MemPool(2, 3211264 * sizeof(unsigned int));
+
+		array2d gpu_res_dim = {permuted_dim_X_value, permuted_dim_W_value};
+		array1d X_selected_indices_dim = {128};
+		array1d W_selected_indices_dim = {768};
+		array1d permuted_XR_indices_dim = {permuted_dim_X_value};
+		array1d permuted_WS_indices_dim = {permuted_dim_W_value};
+		array2d output_dim = {permuted_dim_X_value, permuted_dim_W_value};
+
+		int gpu_res_size = permuted_dim_X_value * permuted_dim_W_value;
+		int X_selected_indices_size = 128;
+		int W_selected_indices_size = 768;
+		int permuted_XR_indices_size = permuted_dim_X_value;
+		int permuted_WS_indices_size = permuted_dim_W_value;
+		int output_size = permuted_dim_X_value * permuted_dim_W_value;
+
+		// Copy input into enclave
+		unsigned int* gpu_res_copy = model_int.mem_pool->alloc<unsigned int>(gpu_res_size);
+		std::copy(gpu_res, gpu_res + gpu_res_size, gpu_res_copy);
+
+		unsigned int* X_selected_indices_copy = model_int.mem_pool->alloc<unsigned int>(X_selected_indices_size);
+		std::copy(X_selected_indices, X_selected_indices + X_selected_indices_size, X_selected_indices_copy);
+
+		unsigned int* W_selected_indices_copy = model_int.mem_pool->alloc<unsigned int>(W_selected_indices_size);
+		std::copy(W_selected_indices, W_selected_indices + W_selected_indices_size, W_selected_indices_copy);
+
+		unsigned int* permuted_XR_indices_copy = model_int.mem_pool->alloc<unsigned int>(permuted_XR_indices_size);
+		std::copy(permuted_XR_indices, permuted_XR_indices + permuted_XR_indices_size, permuted_XR_indices_copy);
+
+		unsigned int* permuted_WS_indices_copy = model_int.mem_pool->alloc<unsigned int>(permuted_WS_indices_size);
+		std::copy(permuted_WS_indices, permuted_WS_indices + permuted_WS_indices_size, permuted_WS_indices_copy);
+
+		// Map tensors
+		auto map_gpu_res = TensorMap<unsigned int, 2>(gpu_res_copy, gpu_res_dim);
+		auto map_X_selected_indices = TensorMap<unsigned int, 1>(X_selected_indices_copy, X_selected_indices_dim);
+		auto map_W_selected_indices = TensorMap<unsigned int, 1>(W_selected_indices_copy, W_selected_indices_dim);
+		auto map_permuted_XR_indices = TensorMap<unsigned int, 1>(permuted_XR_indices_copy, permuted_XR_indices_dim);
+		auto map_permuted_WS_indices = TensorMap<unsigned int, 1>(permuted_WS_indices_copy, permuted_WS_indices_dim);
+		unsigned int* gpu_res_all = model_int.mem_pool->alloc<unsigned int>(permuted_dim_X_value * permuted_dim_W_value);
+		unsigned int* gpu_res_1 = model_int.mem_pool->alloc<unsigned int>(128 * 768);
+		unsigned int* gpu_res_2 = model_int.mem_pool->alloc<unsigned int>(128 * (permuted_dim_W_value - 768));
+		unsigned int* gpu_res_3 = model_int.mem_pool->alloc<unsigned int>((permuted_dim_X_value - 128) * 768);
+		unsigned int* gpu_res_4 = model_int.mem_pool->alloc<unsigned int>((permuted_dim_X_value - 128) * (permuted_dim_W_value - 768));
+		// Correct the order of gpu_res based on permuted indices
+		for (int i = 0; i < permuted_dim_X_value; ++i) {
+			for (int j = 0; j < permuted_dim_W_value; ++j) {
+				int corrected_i = static_cast<int>(map_permuted_XR_indices(i));
+				int corrected_j = static_cast<int>(map_permuted_WS_indices(j));
+				output[corrected_i * permuted_dim_W_value + corrected_j] = map_gpu_res(i, j);
+			}
+		}
+		// Compute RW
+		for (int i = 128; i < permuted_dim_X_value; ++i) {
+			for (int j = 0; j < 768; ++j) {
+				int coefficient_i = i - 128 + 128;
+				int coefficient_j = static_cast<int>(map_W_selected_indices(j)) + 768;
+				output[i * permuted_dim_W_value + j] = output[i * permuted_dim_W_value + j] + output[coefficient_i * permuted_dim_W_value + coefficient_j];
+			}
+		}
+		// Compute XS
+		for (int i = 0; i < 128; ++i) {
+			for (int j = 768; j < permuted_dim_W_value; ++j) {
+				int coefficient_i = static_cast<int>(map_X_selected_indices(i)) + 128;
+				int coefficient_j = j - 768 + 768;
+				output[i * permuted_dim_W_value + j] = output[i * permuted_dim_W_value + j] + output[coefficient_i * permuted_dim_W_value + coefficient_j];
+			}
+		}
+		// Compute RES
+		for (int i = 0; i < 128; ++i) {
+			for (int j = 0; j < 768; ++j) {
+				int coefficient_R = static_cast<int>(map_X_selected_indices(i)) + 128;
+				int coefficient_S = static_cast<int>(map_W_selected_indices(j)) + 768;
+				output[i * permuted_dim_W_value + j] = output[i * permuted_dim_W_value + j] + output[i * permuted_dim_W_value + coefficient_S]
+														  + output[coefficient_R * permuted_dim_W_value + j]
+														  - output[coefficient_R * permuted_dim_W_value + coefficient_S];
+			}
+		}
+		// Release memory
+		model_int.mem_pool->release(gpu_res_copy);
+		model_int.mem_pool->release(X_selected_indices_copy);
+		model_int.mem_pool->release(W_selected_indices_copy);
+		model_int.mem_pool->release(permuted_XR_indices_copy);
+		model_int.mem_pool->release(permuted_WS_indices_copy);
+	}
+	
+	void input_AV(unsigned int* gpu_res, unsigned int* A_selected_indices, unsigned int* V_selected_indices, 
+				unsigned int* permuted_AR_indices, unsigned int* permuted_VS_indices, unsigned int* permuted_dim_A, unsigned int* permuted_dim_V, unsigned int* output) {
+
+		const unsigned int permuted_dim_A_value = *permuted_dim_A;
+		const unsigned int permuted_dim_V_value = *permuted_dim_V;
+		model_int.mem_pool = new MemPool(2, 3211264 * sizeof(unsigned int));
+
+		array2d gpu_res_dim = {permuted_dim_A_value, permuted_dim_V_value};
+		array1d A_selected_indices_dim = {128};
+		array1d V_selected_indices_dim = {768};
+		array1d permuted_AR_indices_dim = {permuted_dim_A_value};
+		array1d permuted_VS_indices_dim = {permuted_dim_V_value};
+		array2d output_dim = {permuted_dim_A_value, permuted_dim_V_value};
+
+		int gpu_res_size = permuted_dim_A_value * permuted_dim_V_value;
+		int A_selected_indices_size = 128;
+		int V_selected_indices_size = 768;
+		int permuted_AR_indices_size = permuted_dim_A_value;
+		int permuted_VS_indices_size = permuted_dim_V_value;
+		int output_size = permuted_dim_A_value * permuted_dim_V_value;
+
+		// Copy input into enclave
+		unsigned int* gpu_res_copy = model_int.mem_pool->alloc<unsigned int>(gpu_res_size);
+		std::copy(gpu_res, gpu_res + gpu_res_size, gpu_res_copy);
+
+		unsigned int* A_selected_indices_copy = model_int.mem_pool->alloc<unsigned int>(A_selected_indices_size);
+		std::copy(A_selected_indices, A_selected_indices + A_selected_indices_size, A_selected_indices_copy);
+
+		unsigned int* V_selected_indices_copy = model_int.mem_pool->alloc<unsigned int>(V_selected_indices_size);
+		std::copy(V_selected_indices, V_selected_indices + V_selected_indices_size, V_selected_indices_copy);
+
+		unsigned int* permuted_AR_indices_copy = model_int.mem_pool->alloc<unsigned int>(permuted_AR_indices_size);
+		std::copy(permuted_AR_indices, permuted_AR_indices + permuted_AR_indices_size, permuted_AR_indices_copy);
+
+		unsigned int* permuted_VS_indices_copy = model_int.mem_pool->alloc<unsigned int>(permuted_VS_indices_size);
+		std::copy(permuted_VS_indices, permuted_VS_indices + permuted_VS_indices_size, permuted_VS_indices_copy);
+
+		// Map tensors
+		auto map_gpu_res = TensorMap<unsigned int, 2>(gpu_res_copy, gpu_res_dim);
+		auto map_A_selected_indices = TensorMap<unsigned int, 1>(A_selected_indices_copy, A_selected_indices_dim);
+		auto map_V_selected_indices = TensorMap<unsigned int, 1>(V_selected_indices_copy, V_selected_indices_dim);
+		auto map_permuted_AR_indices = TensorMap<unsigned int, 1>(permuted_AR_indices_copy, permuted_AR_indices_dim);
+		auto map_permuted_VS_indices = TensorMap<unsigned int, 1>(permuted_VS_indices_copy, permuted_VS_indices_dim);
+		unsigned int* gpu_res_all = model_int.mem_pool->alloc<unsigned int>(permuted_dim_A_value * permuted_dim_V_value);
+		unsigned int* gpu_res_1 = model_int.mem_pool->alloc<unsigned int>(128 * 768);
+		unsigned int* gpu_res_2 = model_int.mem_pool->alloc<unsigned int>(128 * (permuted_dim_V_value - 768));
+		unsigned int* gpu_res_3 = model_int.mem_pool->alloc<unsigned int>((permuted_dim_A_value - 128) * 768);
+		unsigned int* gpu_res_4 = model_int.mem_pool->alloc<unsigned int>((permuted_dim_A_value - 128) * (permuted_dim_V_value - 768));
+		// Correct the order of gpu_res based on permuted indices
+		for (int i = 0; i < permuted_dim_A_value; ++i) {
+			for (int j = 0; j < permuted_dim_V_value; ++j) {
+				int corrected_i = static_cast<int>(map_permuted_AR_indices(i));
+				int corrected_j = static_cast<int>(map_permuted_VS_indices(j));
+				output[corrected_i * permuted_dim_V_value + corrected_j] = map_gpu_res(i, j);
+			}
+		}
+		// Compute RV
+		for (int i = 128; i < permuted_dim_A_value; ++i) {
+			for (int j = 0; j < 768; ++j) {
+				int coefficient_i = i - 128 + 128;
+				int coefficient_j = static_cast<int>(map_V_selected_indices(j)) + 768;
+				output[i * permuted_dim_V_value + j] = output[i * permuted_dim_V_value + j] + output[coefficient_i * permuted_dim_V_value + coefficient_j];
+			}
+		}
+		// Compute AS
+		for (int i = 0; i < 128; ++i) {
+			for (int j = 768; j < permuted_dim_V_value; ++j) {
+				int coefficient_i = static_cast<int>(map_A_selected_indices(i)) + 128;
+				int coefficient_j = j - 768 + 768;
+				output[i * permuted_dim_V_value + j] = output[i * permuted_dim_V_value + j] + output[coefficient_i * permuted_dim_V_value + coefficient_j];
+			}
+		}
+		// Compute RES
+		for (int i = 0; i < 128; ++i) {
+			for (int j = 0; j < 768; ++j) {
+				int coefficient_R = static_cast<int>(map_A_selected_indices(i)) + 128;
+				int coefficient_S = static_cast<int>(map_V_selected_indices(j)) + 768;
+				output[i * permuted_dim_V_value + j] = output[i * permuted_dim_V_value + j] + output[i * permuted_dim_V_value + coefficient_S]
+														  + output[coefficient_R * permuted_dim_V_value + j]
+														  - output[coefficient_R * permuted_dim_V_value + coefficient_S];
+			}
+		}
+		// Release memory
+		model_int.mem_pool->release(gpu_res_copy);
+		model_int.mem_pool->release(A_selected_indices_copy);
+		model_int.mem_pool->release(V_selected_indices_copy);
+		model_int.mem_pool->release(permuted_AR_indices_copy);
+		model_int.mem_pool->release(permuted_VS_indices_copy);
+	}
 	// forward pass
 	void predict_float(float* input, float* output, int batch_size) {
 
@@ -425,7 +785,6 @@ extern "C" {
 
 	// compute a ReLU, ReLU6 or fused AvgPool+ReLU on blinded data
 	void slalom_relu(float* inp, float* out, float* blind, int num_elements, char* activation) {
-
 		int layer_idx = activation_idxs[act_idx];
 		auto curr_layer = model_float.layers[layer_idx];
 		auto prev_layer = model_float.layers[layer_idx - 1];

@@ -1,11 +1,14 @@
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
 import sys
+sys.path.append('/root/slalom')
 import os
 import json
+
+import warnings
+warnings.filterwarnings('ignore', category=FutureWarning)
 
 import numpy as np
 import tensorflow as tf
@@ -69,6 +72,7 @@ def main(_):
                                                               preprocess=model_info['preprocess'],
                                                               num_preprocessing_threads=1)
 
+            # quantize the model
             model, linear_ops_in, linear_ops_out = transform(model, log=False, quantize=args.verify,
                                                              verif_preproc=args.preproc,
                                                              bits_w=model_info['bits_w'],
@@ -127,9 +131,7 @@ def main(_):
                     if args.verify:
                        
                         t1 = timer() 
-                        linear_outputs = sess.run(linear_ops_out, feed_dict={model.inputs[0]: images,
-                                                                             backend.learning_phase(): 0},
-                                                  options=run_options, run_metadata=run_metadata)
+                        linear_outputs = sess.run(linear_ops_out, feed_dict={model.inputs[0]: images, backend.learning_phase(): 0}, options=run_options, run_metadata=run_metadata)
                         t2 = timer()
                         print("GPU compute time: {:.4f}".format((t2-t1) / (1.0 * args.batch_size)))
 
@@ -198,11 +200,11 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('model_name', type=str,
+    parser.add_argument('--model_name', type=str,
                         choices=['vgg_16', 'vgg_19', 'inception_v3', 'mobilenet', 'mobilenet_sep',
                                  'resnet_18', 'resnet_34', 'resnet_50', 'resnet_101', 'resnet_152'])
 
-    parser.add_argument('mode', type=str, choices=['tf-gpu', 'tf-cpu', 'sgxdnn'])
+    parser.add_argument('--mode', type=str, choices=['tf-gpu', 'tf-cpu', 'sgxdnn'])
 
     parser.add_argument('--input_dir', type=str,
                         default='../imagenet/',

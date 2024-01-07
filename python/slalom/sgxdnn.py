@@ -106,6 +106,139 @@ class SGXDNNUtils(object):
             predict_method(inp_ptr, res_ptr, x.shape[0])
 
         return res
+    
+    def benchmark_QK(self, gpu_res, Q_selected_indices, K_selected_indices, permuted_QR_indices, permuted_KS_indices, eid_idx=0):
+        dtype = np.uint32
+        gpu_res_typed = gpu_res.reshape(-1).astype(dtype)
+        gpu_res_ptr = np.ctypeslib.as_ctypes(gpu_res_typed)
+
+        permuted_QR_indices_typed = permuted_QR_indices.astype(dtype)
+        permuted_QR_indices_ptr = np.ctypeslib.as_ctypes(permuted_QR_indices_typed)
+
+        permuted_KS_indices_typed = permuted_KS_indices.astype(dtype)
+        permuted_KS_indices_ptr = np.ctypeslib.as_ctypes(permuted_KS_indices_typed)
+
+        Q_selected_indices_typed = Q_selected_indices.astype(dtype)
+        Q_selected_indices_ptr = np.ctypeslib.as_ctypes(Q_selected_indices_typed)
+
+        K_selected_indices_typed = K_selected_indices.astype(dtype)
+        K_selected_indices_ptr = np.ctypeslib.as_ctypes(K_selected_indices_typed)
+
+        permuted_dim_typed = c_uint(permuted_QR_indices.shape[0])
+        permuted_dim_ptr = pointer(permuted_dim_typed)
+
+        output = np.zeros((153, 153), dtype=dtype)
+        output_ptr = np.ctypeslib.as_ctypes(output.reshape(-1))
+
+        self.lib.input_QK.argtypes = [c_ulong, POINTER(c_uint), POINTER(c_uint), POINTER(c_uint), POINTER(c_uint), POINTER(c_uint), POINTER(c_uint), POINTER(c_uint)]
+        self.lib.input_QK(self.eid[eid_idx], gpu_res_ptr, Q_selected_indices_ptr, K_selected_indices_ptr, permuted_QR_indices_ptr, permuted_KS_indices_ptr, permuted_dim_ptr, output_ptr)
+
+        return output.astype(np.int32)
+
+    def benchmark_XW(self, gpu_res, X_selected_indices, W_selected_indices, permuted_XR_indices, permuted_WS_indices, eid_idx=0):
+        dtype = np.uint32
+        gpu_res_typed = gpu_res.reshape(-1).astype(dtype)
+        gpu_res_ptr = np.ctypeslib.as_ctypes(gpu_res_typed)
+
+        permuted_XR_indices_typed = permuted_XR_indices.astype(dtype)
+        permuted_XR_indices_ptr = np.ctypeslib.as_ctypes(permuted_XR_indices_typed)
+
+        permuted_WS_indices_typed = permuted_WS_indices.astype(dtype)
+        permuted_WS_indices_ptr = np.ctypeslib.as_ctypes(permuted_WS_indices_typed)
+
+        X_selected_indices_typed = X_selected_indices.astype(dtype)
+        X_selected_indices_ptr = np.ctypeslib.as_ctypes(X_selected_indices_typed)
+
+        W_selected_indices_typed = W_selected_indices.astype(dtype)
+        W_selected_indices_ptr = np.ctypeslib.as_ctypes(W_selected_indices_typed)
+
+        permuted_dim_X_typed = c_uint(permuted_XR_indices.shape[0])
+        permuted_dim_X_ptr = pointer(permuted_dim_X_typed)
+
+        permuted_dim_W_typed = c_uint(permuted_WS_indices.shape[0])
+        permuted_dim_W_ptr = pointer(permuted_dim_W_typed)
+
+        output = np.zeros((permuted_XR_indices.shape[0], permuted_WS_indices.shape[0]), dtype=dtype)
+        output_ptr = np.ctypeslib.as_ctypes(output.reshape(-1))
+
+        self.lib.input_XW.argtypes = [c_ulong, POINTER(c_uint), POINTER(c_uint), POINTER(c_uint), POINTER(c_uint), POINTER(c_uint), POINTER(c_uint), POINTER(c_uint), POINTER(c_uint)]
+        self.lib.input_XW(self.eid[eid_idx], gpu_res_ptr, X_selected_indices_ptr, W_selected_indices_ptr, permuted_XR_indices_ptr, permuted_WS_indices_ptr, permuted_dim_X_ptr, permuted_dim_W_ptr, output_ptr)
+
+        return output.astype(np.int32)
+
+    def benchmark_AV(self, gpu_res, A_selected_indices, V_selected_indices, permuted_AR_indices, permuted_VS_indices, eid_idx=0):
+        dtype = np.uint32
+        gpu_res_typed = gpu_res.reshape(-1).astype(dtype)
+        gpu_res_ptr = np.ctypeslib.as_ctypes(gpu_res_typed)
+
+        permuted_AR_indices_typed = permuted_AR_indices.astype(dtype)
+        permuted_AR_indices_ptr = np.ctypeslib.as_ctypes(permuted_AR_indices_typed)
+
+        permuted_VS_indices_typed = permuted_VS_indices.astype(dtype)
+        permuted_VS_indices_ptr = np.ctypeslib.as_ctypes(permuted_VS_indices_typed)
+
+        A_selected_indices_typed = A_selected_indices.astype(dtype)
+        A_selected_indices_ptr = np.ctypeslib.as_ctypes(A_selected_indices_typed)
+
+        V_selected_indices_typed = V_selected_indices.astype(dtype)
+        V_selected_indices_ptr = np.ctypeslib.as_ctypes(V_selected_indices_typed)
+
+        permuted_dim_A_typed = c_uint(permuted_AR_indices.shape[0])
+        permuted_dim_A_ptr = pointer(permuted_dim_A_typed)
+
+        permuted_dim_V_typed = c_uint(permuted_VS_indices.shape[0])
+        permuted_dim_V_ptr = pointer(permuted_dim_V_typed)
+
+        output = np.zeros((permuted_AR_indices.shape[0], permuted_VS_indices.shape[0]), dtype=dtype)
+        output_ptr = np.ctypeslib.as_ctypes(output.reshape(-1))
+
+        self.lib.input_AV.argtypes = [c_ulong, POINTER(c_uint), POINTER(c_uint), POINTER(c_uint), POINTER(c_uint), POINTER(c_uint), POINTER(c_uint), POINTER(c_uint), POINTER(c_uint)]
+        self.lib.input_AV(self.eid[eid_idx], gpu_res_ptr, A_selected_indices_ptr, V_selected_indices_ptr, permuted_AR_indices_ptr, permuted_VS_indices_ptr, permuted_dim_A_ptr, permuted_dim_V_ptr, output_ptr)
+
+        return output.astype(np.int32)
+    
+    def benchmark_softmax(self, x_exp_raw, eid_idx=0):
+        dtype = np.float32
+        x_exp_raw_typed = x_exp_raw.astype(dtype)
+        x_exp_raw_ptr = np.ctypeslib.as_ctypes(x_exp_raw_typed)
+
+        output = np.zeros_like(x_exp_raw, dtype=dtype)
+        output_ptr = np.ctypeslib.as_ctypes(output.reshape(-1))
+
+        ptr_type = c_float
+        self.lib.input_softmax.argtypes = [c_ulong, POINTER(ptr_type), POINTER(ptr_type)]
+        self.lib.input_softmax(self.eid[eid_idx], x_exp_raw_ptr, output_ptr)
+
+        return output.astype(np.float32)
+
+    def benchmark_exp(self, gpu_x_exp_raw, r_exp_raw, a_idx, r_a_idx, x_r_idx, eid_idx=0):
+        dtype = np.float32
+        gpu_x_exp_raw_typed = gpu_x_exp_raw.astype(dtype)
+        gpu_x_exp_raw_ptr = np.ctypeslib.as_ctypes(gpu_x_exp_raw_typed)
+
+        r_exp_raw_typed = r_exp_raw.astype(dtype)
+        r_exp_raw_ptr = np.ctypeslib.as_ctypes(r_exp_raw_typed)
+
+        a_idx_typed = a_idx.astype(dtype)
+        a_idx_ptr = np.ctypeslib.as_ctypes(a_idx_typed)
+
+        r_a_idx_typed = r_a_idx.astype(dtype)
+        r_a_idx_ptr = np.ctypeslib.as_ctypes(r_a_idx_typed)
+
+        x_r_idx_typed = x_r_idx.astype(dtype)
+        x_r_idx_ptr = np.ctypeslib.as_ctypes(x_r_idx_typed)
+
+        output = np.zeros_like(x_r_idx, dtype=dtype)
+        output_ptr = np.ctypeslib.as_ctypes(output.reshape(-1))
+
+        integrity_gap = np.zeros_like(r_a_idx, dtype=dtype)
+        integrity_gap_ptr = np.ctypeslib.as_ctypes(integrity_gap.reshape(-1))
+
+        ptr_type = c_float
+        self.lib.input_exp.argtypes = [c_ulong, POINTER(ptr_type), POINTER(ptr_type), POINTER(ptr_type), POINTER(ptr_type), POINTER(ptr_type), POINTER(ptr_type), POINTER(ptr_type)]
+        self.lib.input_exp(self.eid[eid_idx], gpu_x_exp_raw_ptr, r_exp_raw_ptr, a_idx_ptr, r_a_idx_ptr, x_r_idx_ptr, output_ptr, integrity_gap_ptr)
+
+        return output.astype(np.float32), integrity_gap.astype(np.float32)
 
     def predict_and_verify(self, x, aux_data, num_classes=1000, dtype=np.float64, eid_idx=0):
         assert dtype == np.float32

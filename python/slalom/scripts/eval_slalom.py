@@ -1,12 +1,14 @@
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import python.slalom.keras_fix
+import warnings
+warnings.filterwarnings('ignore', category=FutureWarning)
 
 import sys
+sys.path.append('/root/slalom')
 import os
+import python.slalom.keras_fix
 
 import numpy as np
 import tensorflow as tf
@@ -104,9 +106,7 @@ def main(_):
 
                 res.start_timer()
 
-                preds = sess.run(model.outputs[0], feed_dict={model.inputs[0]: images,
-                                                              backend.learning_phase(): 0},
-                                 options=run_options, run_metadata=run_metadata)
+                preds = sess.run(model.outputs[0], feed_dict={model.inputs[0]: images, backend.learning_phase(): 0}, options=run_options, run_metadata=run_metadata)
 
                 preds = np.reshape(preds, (batch_size, -1))
                 res.end_timer(size=len(images))
@@ -130,7 +130,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('model_name', type=str,
+    parser.add_argument('--model_name', type=str,
                         choices=['vgg_16', 'vgg_19', 'inception_v3', 'mobilenet', 'mobilenet_sep', 
                                  'resnet_18', 'resnet_34', 'resnet_50', 'resnet_101', 'resnet_152'])
     parser.add_argument('--input_dir', type=str,

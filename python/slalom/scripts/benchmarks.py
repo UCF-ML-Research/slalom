@@ -4,6 +4,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import warnings
+warnings.filterwarnings('ignore', category=FutureWarning)
+
+import sys
+sys.path.append('/root/slalom')
 from python.slalom.sgxdnn import SGXDNNUtils
 
 

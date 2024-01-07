@@ -10,7 +10,23 @@ enclave {
 									 [user_check] float** filters);
 
         public void ecall_predict_float([user_check] float* input, [user_check] float* output, int batch_size);
-
+		public void ecall_input_exp([user_check] float* gpu_x_exp_raw, [user_check] float* r_exp_raw, [user_check] float* a_idx, 
+									[user_check] float* r_a_idx, [user_check] float* x_r_idx, [user_check] float* output, [user_check] float* integrity_gap);
+		public void ecall_input_softmax([user_check] float* x_exp_raw, [user_check] float* output);
+		public void ecall_input_QK([user_check] unsigned int* gpu_res, [user_check] unsigned int* Q_selected_indices, 
+									[user_check] unsigned int* K_selected_indices, [user_check] unsigned int* permuted_QR_indices, 
+									[user_check] unsigned int* permuted_KS_indices, [user_check] unsigned int* permuted_dim, 
+									[user_check] unsigned int* output);
+									
+		public void ecall_input_XW([user_check] unsigned int* gpu_res, [user_check] unsigned int* X_selected_indices, 
+									[user_check] unsigned int* W_selected_indices, [user_check] unsigned int* permuted_XR_indices, 
+									[user_check] unsigned int* permuted_WS_indices, [user_check] unsigned int* permuted_dim_X, 
+									[user_check] unsigned int* permuted_dim_W, [user_check] unsigned int* output);
+						
+		public void ecall_input_AV([user_check] unsigned int* gpu_res, [user_check] unsigned int* A_selected_indices, 
+									[user_check] unsigned int* V_selected_indices, [user_check] unsigned int* permuted_AR_indices, 
+									[user_check] unsigned int* permuted_VS_indices, [user_check] unsigned int* permuted_dim_A, 
+									[user_check] unsigned int* permuted_dim_V, [user_check] unsigned int* output);
 
         public void ecall_load_model_float_verify([user_check] char* model_json,
 									 [user_check] float** filters, int preproc);
