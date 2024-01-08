@@ -33,6 +33,10 @@ extern "C" {
 
 		void input_exp(float* gpu_x_exp_raw, float* r_exp_raw, float* a_idx, float* r_a_idx, float* x_r_idx, float* output, float* integrity_gap);
 		void input_softmax(float* x_exp_raw, float* output);
+		void input_gelu(float* x, float* output);
+		void input_layernorm(float* x, float* output);
+		void input_TEE_XY(unsigned int* dim_1, unsigned int* dim_2, unsigned int* dim_3, float* x, float* y, float* output);
+		void input_TEE_softmax(float* x, float* output);
 		void input_QK(unsigned int* gpu_res, unsigned int* Q_selected_indices, unsigned int* K_selected_indices, unsigned int* permuted_QR_indices, unsigned int* permuted_KS_indices, unsigned int* permuted_dim, unsigned int* output);
 		void input_XW(unsigned int* gpu_res, unsigned int* X_selected_indices, unsigned int* W_selected_indices, unsigned int* permuted_XR_indices, unsigned int* permuted_WS_indices, unsigned int* permuted_dim_X, unsigned int* permuted_dim_W, unsigned int* output);
 		void input_AV(unsigned int* gpu_res, unsigned int* A_selected_indices, unsigned int* V_selected_indices, unsigned int* permuted_AR_indices, unsigned int* permuted_VS_indices, unsigned int* permuted_dim_A, unsigned int* permuted_dim_V, unsigned int* output);

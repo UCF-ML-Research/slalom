@@ -211,6 +211,70 @@ class SGXDNNUtils(object):
 
         return output.astype(np.float32)
 
+    def benchmark_gelu(self, x, eid_idx=0):
+        dtype = np.float32
+        x_typed = x.astype(dtype)
+        x_ptr = np.ctypeslib.as_ctypes(x_typed.reshape(-1))
+
+        output = np.zeros_like(x_typed, dtype=dtype)
+        output_ptr = np.ctypeslib.as_ctypes(output.reshape(-1))
+
+        self.lib.input_gelu.argtypes = [c_ulong, POINTER(c_float), POINTER(c_float)]
+        self.lib.input_gelu(self.eid[eid_idx], x_ptr, output_ptr)
+
+        return output.astype(np.float32)
+
+    def benchmark_layernorm(self, x, eid_idx=0):
+        dtype = np.float32
+        x_typed = x.astype(dtype)
+        x_ptr = np.ctypeslib.as_ctypes(x_typed.reshape(-1))
+
+        output = np.zeros_like(x_typed, dtype=dtype)
+        output_ptr = np.ctypeslib.as_ctypes(output.reshape(-1))
+
+        self.lib.input_layernorm.argtypes = [c_ulong, POINTER(c_float), POINTER(c_float)]
+        self.lib.input_layernorm(self.eid[eid_idx], x_ptr, output_ptr)
+
+        return output.astype(np.float32)
+
+    def benchmark_TEE_XY(self, x, y, eid_idx=0):
+        dtype = np.float32
+        x_typed = x.astype(dtype)
+        x_ptr = np.ctypeslib.as_ctypes(x_typed.reshape(-1))
+
+        y_typed = y.astype(dtype)
+        y_ptr = np.ctypeslib.as_ctypes(y_typed.reshape(-1))
+
+        output = np.zeros((x.shape[0], y.shape[1]), dtype=dtype)
+        output_ptr = np.ctypeslib.as_ctypes(output.reshape(-1))
+
+        dim_1_typed = c_uint(x.shape[0])
+        dim_1_ptr = pointer(dim_1_typed)
+
+        dim_2_typed = c_uint(x.shape[1])
+        dim_2_ptr = pointer(dim_2_typed)
+
+        dim_3_typed = c_uint(y.shape[1])
+        dim_3_ptr = pointer(dim_3_typed)
+
+        self.lib.input_TEE_XY.argtypes = [c_ulong, POINTER(c_uint), POINTER(c_uint), POINTER(c_uint), POINTER(c_float), POINTER(c_float), POINTER(c_float)]
+        self.lib.input_TEE_XY(self.eid[eid_idx], dim_1_ptr, dim_2_ptr, dim_3_ptr, x_ptr, y_ptr, output_ptr)
+
+        return output.astype(np.float32)
+
+    def benchmark_TEE_softmax(self, x, eid_idx=0):
+        dtype = np.float32
+        x_typed = x.astype(dtype)
+        x_ptr = np.ctypeslib.as_ctypes(x_typed.reshape(-1))
+
+        output = np.zeros_like(x, dtype=dtype)
+        output_ptr = np.ctypeslib.as_ctypes(output.reshape(-1))
+
+        self.lib.input_TEE_softmax.argtypes = [c_ulong, POINTER(c_float), POINTER(c_float)]
+        self.lib.input_TEE_softmax(self.eid[eid_idx], x_ptr, output_ptr)
+
+        return output.astype(np.float32)
+
     def benchmark_exp(self, gpu_x_exp_raw, r_exp_raw, a_idx, r_a_idx, x_r_idx, eid_idx=0):
         dtype = np.float32
         gpu_x_exp_raw_typed = gpu_x_exp_raw.astype(dtype)

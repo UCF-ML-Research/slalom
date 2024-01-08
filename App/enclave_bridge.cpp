@@ -218,53 +218,129 @@ extern "C"
         printf("returning...\n");
 	}
     void input_exp(unsigned long int eid, float* gpu_x_exp_raw, float* r_exp_raw, float* a_idx, float* r_a_idx, float* x_r_idx, float* output, float* integrity_gap) {
+        auto start = std::chrono::high_resolution_clock::now();
         sgx_status_t ret = ecall_input_exp(eid, gpu_x_exp_raw, r_exp_raw, a_idx, r_a_idx, x_r_idx, output, integrity_gap);
-        printf("predict returned!\n");
         if (ret != SGX_SUCCESS) {
             print_error_message(ret);
             throw ret;
         }
-        printf("returning...\n");
+        else {
+            auto end = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed = end - start;
+            printf("Execution time: %f ms.\n", elapsed * 1000);
+        }
 	}
 
     void input_softmax(unsigned long int eid, float* x_exp_raw, float* output) {
+        auto start = std::chrono::high_resolution_clock::now();
         sgx_status_t ret = ecall_input_softmax(eid, x_exp_raw, output);
-        printf("predict returned!\n");
         if (ret != SGX_SUCCESS) {
             print_error_message(ret);
             throw ret;
         }
-        printf("returning...\n");
+        else {
+            auto end = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed = end - start;
+            printf("Execution time: %f ms.\n", elapsed * 1000);
+        }
     }
 
     void input_QK(unsigned long int eid, unsigned int* gpu_res, unsigned int* Q_selected_indices, unsigned int* K_selected_indices, unsigned int* permuted_QR_indices, unsigned int* permuted_KS_indices, unsigned int* permuted_dim, unsigned int* output) {
+        auto start = std::chrono::high_resolution_clock::now();
         sgx_status_t ret = ecall_input_QK(eid, gpu_res, Q_selected_indices, K_selected_indices, permuted_QR_indices, permuted_KS_indices, permuted_dim, output);
-        printf("predict returned!\n");
         if (ret != SGX_SUCCESS) {
             print_error_message(ret);
             throw ret;
         }
-        printf("returning...\n");
+        else {
+            auto end = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed = end - start;
+            printf("Execution time: %f ms.\n", elapsed * 1000);
+        }
     }
 
     void input_XW(unsigned long int eid, unsigned int* gpu_res, unsigned int* X_selected_indices, unsigned int* W_selected_indices, unsigned int* permuted_XR_indices, unsigned int* permuted_WS_indices, unsigned int* permuted_dim_X, unsigned int* permuted_dim_W, unsigned int* output) {
+        auto start = std::chrono::high_resolution_clock::now();
         sgx_status_t ret = ecall_input_XW(eid, gpu_res, X_selected_indices, W_selected_indices, permuted_XR_indices, permuted_WS_indices, permuted_dim_X, permuted_dim_W, output);
-        printf("predict returned!\n");
         if (ret != SGX_SUCCESS) {
             print_error_message(ret);
             throw ret;
         }
-        printf("returning...\n");
+        else {
+            auto end = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed = end - start;
+            printf("Execution time: %f ms.\n", elapsed * 1000);
+        }
     }
 
     void input_AV(unsigned long int eid, unsigned int* gpu_res, unsigned int* A_selected_indices, unsigned int* V_selected_indices, unsigned int* permuted_AR_indices, unsigned int* permuted_VS_indices, unsigned int* permuted_dim_A, unsigned int* permuted_dim_V, unsigned int* output) {
+        auto start = std::chrono::high_resolution_clock::now();
         sgx_status_t ret = ecall_input_AV(eid, gpu_res, A_selected_indices, V_selected_indices, permuted_AR_indices, permuted_VS_indices, permuted_dim_A, permuted_dim_V, output);
-        printf("predict returned!\n");
         if (ret != SGX_SUCCESS) {
             print_error_message(ret);
             throw ret;
         }
-        printf("returning...\n");
+        else {
+            auto end = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed = end - start;
+            printf("Execution time: %f ms.\n", elapsed * 1000);
+        }
+    }
+
+    void input_gelu(unsigned long int eid, float* x, float* output) {
+        auto start = std::chrono::high_resolution_clock::now();
+        sgx_status_t ret = ecall_input_gelu(eid, x, output);
+        if (ret != SGX_SUCCESS) {
+            print_error_message(ret);
+            throw ret;
+        }
+        else {
+            auto end = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed = end - start;
+            printf("Execution time: %f ms.\n", elapsed * 1000);
+        }
+    }
+
+    void input_TEE_XY(unsigned long int eid, unsigned int* dim_1, unsigned int* dim_2, unsigned int* dim_3, float* x, float* y, float* output) {
+        auto start = std::chrono::high_resolution_clock::now();
+        sgx_status_t ret = ecall_input_TEE_XY(eid, dim_1, dim_2, dim_3, x, y, output);
+        if (ret != SGX_SUCCESS) {
+            print_error_message(ret);
+            throw ret;
+        }
+        else {
+            auto end = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed = end - start;
+            printf("Execution time: %f ms.\n", elapsed * 1000);
+        }
+    }
+
+    void input_TEE_softmax(unsigned long int eid, float* x, float* output) {
+        auto start = std::chrono::high_resolution_clock::now();
+        sgx_status_t ret = ecall_input_TEE_softmax(eid, x, output);
+        if (ret != SGX_SUCCESS) {
+            print_error_message(ret);
+            throw ret;
+        }
+        else {
+            auto end = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed = end - start;
+            printf("Execution time: %f ms.\n", elapsed * 1000);
+        }
+    }
+
+    void input_layernorm(unsigned long int eid, float* x, float* output) {
+        auto start = std::chrono::high_resolution_clock::now();
+        sgx_status_t ret = ecall_input_layernorm(eid, x, output);
+        if (ret != SGX_SUCCESS) {
+            print_error_message(ret);
+            throw ret;
+        }
+        else {
+            auto end = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed = end - start;
+            printf("Execution time: %f ms.\n", elapsed * 1000);
+        }
     }
 
     void load_model_float_verify(unsigned long int eid, char* model_json, float** filters, bool preproc) {

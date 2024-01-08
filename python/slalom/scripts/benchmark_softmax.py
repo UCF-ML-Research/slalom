@@ -76,10 +76,7 @@ def main(_):
         gpu_x_raw = gpu_x / (2 ** BITS)
         gpu_x_raw_tensor = tf.convert_to_tensor(gpu_x_raw, dtype=tf.float32)
         with tf.device('/gpu:0'):
-            t1 = timer() 
             gpu_x_raw_exp_tensor = tf.exp(gpu_x_raw_tensor)
-            t2 = timer()
-            print("GPU compute time: {:.4f}".format(t2-t1))
 
         gpu_x_exp_raw = sess.run(gpu_x_raw_exp_tensor)
 

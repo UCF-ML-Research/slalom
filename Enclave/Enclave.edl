@@ -13,6 +13,10 @@ enclave {
 		public void ecall_input_exp([user_check] float* gpu_x_exp_raw, [user_check] float* r_exp_raw, [user_check] float* a_idx, 
 									[user_check] float* r_a_idx, [user_check] float* x_r_idx, [user_check] float* output, [user_check] float* integrity_gap);
 		public void ecall_input_softmax([user_check] float* x_exp_raw, [user_check] float* output);
+		public void ecall_input_gelu([user_check] float* x, [user_check] float* output);
+		public void ecall_input_TEE_XY([user_check] unsigned int* dim_1, [user_check] unsigned int* dim_2, [user_check] unsigned int* dim_3, [user_check] float* x, [user_check] float* y, [user_check] float* output);
+		public void ecall_input_TEE_softmax([user_check] float* x, [user_check] float* output);
+		public void ecall_input_layernorm([user_check] float* x, [user_check] float* output);
 		public void ecall_input_QK([user_check] unsigned int* gpu_res, [user_check] unsigned int* Q_selected_indices, 
 									[user_check] unsigned int* K_selected_indices, [user_check] unsigned int* permuted_QR_indices, 
 									[user_check] unsigned int* permuted_KS_indices, [user_check] unsigned int* permuted_dim, 

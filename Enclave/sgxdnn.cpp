@@ -31,6 +31,26 @@ void ecall_input_softmax(float* x_exp_raw, float* output)
 	input_softmax(x_exp_raw, output);
 }
 
+void ecall_input_gelu(float* x, float* output)
+{
+	input_gelu(x, output);
+}
+
+void ecall_input_TEE_XY(unsigned int* dim_1, unsigned int* dim_2, unsigned int* dim_3, float* x, float* y, float* output)
+{
+	input_TEE_XY(dim_1, dim_2, dim_3, x, y, output);
+}
+
+void ecall_input_TEE_softmax(float* x, float* output)
+{
+	input_TEE_softmax(x, output);
+}
+
+void ecall_input_layernorm(float* x, float* output)
+{
+	input_layernorm(x, output);
+}
+
 void ecall_input_QK(unsigned int* gpu_res, unsigned int* Q_selected_indices, unsigned int* K_selected_indices, unsigned int* permuted_QR_indices, unsigned int* permuted_KS_indices, unsigned int* permuted_dim, unsigned int* output)
 {
 	input_QK(gpu_res, Q_selected_indices, K_selected_indices, permuted_QR_indices, permuted_KS_indices, permuted_dim, output);
